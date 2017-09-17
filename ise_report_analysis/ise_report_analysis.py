@@ -8,6 +8,12 @@ import csv
 import sqlite3
 import os.path
 
+class DatabseManager(object):
+    def __init__(self,db_filename):
+        self.conn = sqlite3.connect(db_filename)
+        self.conn.commit()
+        self.cursor = self.conn.cursor
+
 def create_db():
     db_filename = input('Please enter the report date: ') + '_ISE_Report.db'
 
