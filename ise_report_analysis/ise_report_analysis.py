@@ -4,63 +4,99 @@
 #
 # This is a script designed to read in a .csv file from a Cisco ISE Report and analyse the file
 
+
+### Notes: Problems to Solve
+### - Assign table headers to variable to pass into table creation function
+### - Assign column names to variable to pass into SELECT WHERE statements wher column name is return value
+### - Provide the ability to use a signle or multiple SELECT WHERE options in a class function
+
+
 import csv
 import sqlite3
 import os.path
 
-class DatabseManager(object):
-    def __init__(self,db_filename):
+class database_manager(object):
+    def __init__(self,db_filename,csv_filename):
         self.conn = sqlite3.connect(db_filename)
         self.conn.commit()
-        self.cursor = self.conn.cursor
+        self.cursor = self.conn.cursor()
 
-def create_db():
-    db_filename = input('Please enter the report date: ') + '_ISE_Report.db'
+        self.cursor.execute("""CREATE TABLE Raw_Data (
+                                DATE_TIME,
+                                CALLING_STATION_ID,
+                                USER_NAME,
+                                SELECTED_AZN_PROFILE,
+                                AUTH_PROTOCOL);
+                            """)
+        self.conn.commit()
 
+        with open(csv_filename, 'r') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            write_db = [(i['DATE_TIME'], i['CALLING_STATION_ID'], i['USER_NAME'], i['SELECTED_AZN_PROFILE'], i['AUTH_PROTOCOL']) for i in csv_reader]
+
+            self.cursor.executemany("""INSERT INTO Raw_Data (
+                                DATE_TIME,
+                                CALLING_STATION_ID,
+                                USER_NAME,
+                                SELECTED_AZN_PROFILE,
+                                AUTH_PROTOCOL) VALUES (?,?,?,?,?);
+                            """, write_db)
+            self.conn.commit()
+
+    def query_db_table(self,table_name, column_name, value):
+        self.cursor.execute('SELECT * FROM Raw_Data WHERE ? = ?', (column_name, value))
+        query_list = self.cursor.fetchall()
+        create_db_table(table_name, query_list)
+
+    def create_db_table(self, table_name, query_list):
+        self.cursor.execute("""CREATE TABLE ? (
+                                DATE_TIME,
+                                CALLING_STATION_ID,
+                                USER_NAME,
+                                SELECTED_AZN_PROFILE,
+                                AUTH_PROTOCOL);
+                            """)
+
+        self.cursor.executemany("""INSERT INTO Raw_Data (
+                                    DATE_TIME,
+                                    CALLING_STATION_ID,
+                                    USER_NAME,
+                                    SELECTED_AZN_PROFILE,
+                                    AUTH_PROTOCOL) VALUES (?,?,?,?,?);
+                                """, query_list)
+
+        pass
+
+    def __del__(self):
+        self.conn.close()
+
+
+def main():
+    # Print program introduction lines
+    print ('Cisco ISE Report Script\n')
+    print ('This is a script designed to read in a .csv file from a Cisco ISE Report and analyse the file\n')
+
+    # Read date in from user input and create database filename
+    db_filename = input('Using the following date format \'YYYYMMDD\', please enter the report date: ') + '_ISE_Report.db'
+
+    # While loop used to test filename is valid within the current directory
     while os.path.isfile(db_filename):
         print ('Database file already exists for ' + db_filename)
         db_filename = input('Please enter a new report date: ') + '_ISE_Report.db'
 
-    conn = sqlite3.connect(db_filename)
-    cursor = conn.cursor()
-    cursor.execute("""CREATE TABLE Location (
-                        DATE_TIME,
-                        CALLING_STATION_ID,
-                        USER_NAME,
-                        SELECTED_AZN_PROFILE,
-                        AUTH_PROTOCOL);
-                    """)
-    conn.commit()
-    conn.close()
+    # Prompt user for input CSV filename
+    csv_filename = input('Please enter the input filename: ')
 
-    return db_filename
+    # Call database_manager class passing in the db_filename
+    database = database_manager(db_filename,csv_filename)
+
+    # Run queries and create new tables based on query returns
+    # e.g. Query Raw_Data for all successful authentications, create succ table from query of all successful authentications
+    database.query_db_table('Succ', 'SELECTED_AZN_PROFILE', 'Full_corporate_access')
 
 
-def read_csv_into_db(db_filename):
-    filename = input('Please enter the input filename: ')
-
-    with open(filename, 'r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        write_db = [(i['DATE_TIME'], i['CALLING_STATION_ID'], i['USER_NAME'], i['SELECTED_AZN_PROFILE'], i['AUTH_PROTOCOL']) for i in csv_reader]
-
-        conn = sqlite3.connect(db_filename)
-        cursor = conn.cursor()
-        cursor.executemany("""INSERT INTO Location (
-                            DATE_TIME,
-                            CALLING_STATION_ID,
-                            USER_NAME,
-                            SELECTED_AZN_PROFILE,
-                            AUTH_PROTOCOL) VALUES (?,?,?,?,?);
-                        """, write_db)
-        conn.commit()
-        conn.close()
-
-def main():
-    print ('Cisco ISE Report Script\n\n')
-    print ('This is a script designed to read in a .csv file from a Cisco ISE Report and analyse the file')
-
-    db_filename = create_db()
-    read_csv_into_db(db_filename)
+    # Close connection to database
+    database.__del__
 
 
 if __name__ == '__main__':
