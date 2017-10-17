@@ -83,8 +83,11 @@ def main():
     print ('Cisco ISE Report Script\n')
     print ('This is a script designed to read in a .csv file from a Cisco ISE Report and analyse the file\n')
 
+    # Read site code in from user input and store in variable
+    site_code = input('Please enter the data site code for the report: ')
+
     # Read date in from user input and create database filename
-    db_filename = input('Using the following date format \'YYYYMMDD\', please enter the report date: ') + '_ISE_Report.db'
+    db_filename = input('Using the following date format \'YYYYMMDD\', please enter the report date: ') + '_' + site_code + '_ISE_Report.db'
 
     # While loop used to test filename is valid within the current directory
     while os.path.isfile(db_filename):
