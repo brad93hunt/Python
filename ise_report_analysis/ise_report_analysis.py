@@ -12,12 +12,10 @@
 ### - Provide the ability to use a signle or multiple SELECT WHERE options in a class function
 ### - Create another table from the output of a table query
 
-
-from csv import DictReader
-from sys import exit
-
+import csv
 import sqlite3
 import os.path
+import sys
 
 
 class database_manager(object):
@@ -26,12 +24,18 @@ class database_manager(object):
         self.conn = None
         self.cursor = None
 
+        # Open initial connection to DB
         if db_fname:
-            self.open_db(db_fname)
+            self.db_open(db_fname)
+
+        # Commit and close initial connection to DB
+        self.conn.commit()
+        #self.cursor.close()
+        #self.conn.close()
 
 
     def db_open(self, db_fname):
-
+        # Try connecting to the DB
         try:
             self.conn = sqlite3.connect(db_fname);
             self.cursor = self.conn.cursor()
@@ -52,16 +56,35 @@ class database_manager(object):
         create_db_table(table_name, query_list)
 
 
-    def db_create_table(self, table_name, column_list):
+    def db_create_table(self, db_table, db_columns, db_data):
+        # Open connection to DB
+        #self.db_open(db_fname)
 
-        self.cursor.execute("""CREATE TABLE {} {}""".format(table_name,tuple(column_list)))
+        # Create table
+        self.cursor.execute("""CREATE TABLE {} {}""".format(db_table,tuple(db_columns)))
+
+        # Commit and close initial connection to DB
+        self.conn.commit()
+        #self.cursor.close()
+        #self.conn.close()
+
+        # Call db_insert to put data into table after creating it
+        self.db_insert(db_table, db_data)
 
         return
 
 
-    def db_insert(self, table_name, column_list, data):
+    def db_insert(self, db_table, db_data):
+        # Open connection to DB
+        #self.db_open(db_fname)
 
-        self.cursor.executemany("""INSERT INTO {} {}""".format table_name )
+        # Insert data into table
+        self.cursor.executemany("""INSERT INTO {} {}""".format(db_table, tuple(db_data)))
+
+        # Commit and close initial connection to DB
+        self.conn.commit()
+        #self.cursor.close()
+        #self.conn.close()
 
 
     def __del__(self):
@@ -74,17 +97,20 @@ def csv_read(csv_fname, expected_columns):
 
     # Read in csv as DictReader, read in column names, read in data
     with open(csv_fname, 'r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
-        csv_columns = csv_reader.fieldnames
+
+        csv_data = []
+
+        csv_reader = csv.reader(csv_file)
+        csv_columns = next(csv_reader)
 
         # Check column names are as expected
-        if set(expected_columns) == set(csv_columns):
-            cvs_data = [(i['DATE_TIME'], i['CALLING_STATION_ID'], i['USER_NAME'], i['SELECTED_AZN_PROFILE'], i['AUTH_PROTOCOL']) for i in csv_reader]
+        if set(sorted(expected_columns)) == set(sorted(csv_columns)):
+            csv_data = list(tuple(row) for row in csv_reader)
             return expected_columns, csv_data
 
         # Check if column names are a subset of expected
-        elif set(expected_columns) < set(csv_columns):
-            csv_data = [(i['DATE_TIME'], i['CALLING_STATION_ID'], i['USER_NAME'], i['SELECTED_AZN_PROFILE'], i['AUTH_PROTOCOL']) for i in csv_reader]
+        elif set(sorted(expected_columns)) < set(sorted(csv_columns)):
+            csv_data = list(tuple(row) for row in csv_reader)
             return csv_columns, csv_data
 
         # Throw an erros if column names are not as expected or subset of expected
@@ -96,7 +122,8 @@ def csv_read(csv_fname, expected_columns):
 
 def main():
 
-    # Declare x_Bypass table column names
+    # Declare table column name variables
+    expected_columns = ['USER_NAME','CALLING_STATION_ID','SELECTED_AZN_PROFILE']
     bypass_columns = ['USER_NAME', 'MAC_ADDRESS','MAC_OUI','MAC_VENDOR','ENDPOINTMATCHEDPROFILE','SWITCH','PORT','SWITCH_PORT','DESK_LOCATION']
     failed_columns = ['USER_NAME', 'MAC_ADDRESS','MAC_OUI','MAC_VENDOR','ENDPOINTMATCHEDPROFILE','SWITCH','PORT','SWITCH_PORT','DESK_LOCATION']
     guest_columns = ['USER_NAME', 'MAC_ADDRESS','MAC_OUI','MAC_VENDOR','ENDPOINTMATCHEDPROFILE','SWITCH','PORT','SWITCH_PORT','DESK_LOCATION']
@@ -126,8 +153,20 @@ def main():
         print ("CSV file is not as expected - uncrecognised column names detected. Check the file name is correct.")
         sys.exit()
 
-    # Call database_manager class passing in the db_filename
+    ##### CREATE TABLES #####
+    # Initial connection to DB
     report_db = database_manager(report_db_fname)
+    # Raw_Data tale
+    report_db.db_create_table('Raw_Data', db_columns, db_raw_data)
+
+    # Succ table
+
+
+    # Bypass table
+
+    # Failed table
+
+
 
     # Run queries and create new tables based on query returns
     # e.g. Query Raw_Data for all successful authentications, create succ table from query of all successful authentications
